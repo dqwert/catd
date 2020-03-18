@@ -133,6 +133,9 @@ class WordNet:
                 doc.word_id_tf_idf[word_id] = doc.word_id_tf[word_id] * self.nodes[word_id].inverse_document_frequency
 
     def get_cut_corpus(self):
+        """
+        :return: list of lists of words
+        """
         corpus = []
         for doc in self.docs:
             word_list = []
@@ -141,6 +144,37 @@ class WordNet:
                     word_list.append(self.word_id_to_word(word_id))
             corpus.append(word_list)
         return corpus
+
+    def generate_id_to_word(self):
+        """
+        :return: dict[id] = word
+        """
+        id2word = {}
+        for node in self.nodes:
+            id2word[node.node_id] = node.word
+        return id2word
+
+    def generate_word_to_id(self):
+        """
+        :return: dict[word] = id
+        """
+        word2id = {}
+        for node in self.nodes:
+            word2id[node.word] = node.node_id
+        return word2id
+
+    def generate_docs_to_bag_of_words(self):
+        """
+        Convert each doc into the bag-of-words format
+        :return: list of `(token_id, token_count)` tuples
+        """
+        bow = []
+        for doc in self.docs:
+            doc_bow = []
+            for word_id in doc.word_id_count_in_doc.keys():
+                doc_bow.append((word_id, doc.word_id_count_in_doc[word_id]))
+            bow.append(doc_bow)
+        return bow
 
     def extract_topics(self):
         corpus = self.get_cut_corpus()

@@ -4,15 +4,36 @@ import os
 import re
 import jieba
 from jieba import posseg
+from pathlib import Path
+import urllib.request
+import logging
+
+
+logging.getLogger().setLevel(logging.INFO)
+
+
+def set_up_current_dir_as_working_dir(download_test_set=True):
+    Path(os.path.join('data', 'original_data')).mkdir(parents=True, exist_ok=True)
+    Path(os.path.join('data', 'selected_words')).mkdir(parents=True, exist_ok=True)
+    Path(os.path.join('data', 'stop_words')).mkdir(parents=True, exist_ok=True)
+    Path(os.path.join('objects')).mkdir(parents=True, exist_ok=True)
+    Path(os.path.join('output', 'cut_docs')).mkdir(parents=True, exist_ok=True)
+    Path(os.path.join('output', 'description')).mkdir(parents=True, exist_ok=True)
+    Path(os.path.join('output', 'extracted_words')).mkdir(parents=True, exist_ok=True)
+    if download_test_set:
+        logging.info('downloading dataset...')
+        data_set_url = 'https://raw.githubusercontent.com/dqwerter/dataset/master/tianya_posts_test_set_100.txt'
+        urllib.request.urlretrieve(data_set_url, os.path.join('data', 'original_data', 'tianya_posts_test_set_100.txt'))
+        logging.info('download complete.')
 
 
 def save_obj(obj, name):
-    with open(os.path.join(os.getcwd(), 'output', 'objects', name + '.pkl'), 'wb') as f:
+    with open(os.path.join(os.getcwd(), 'output', 'objects', name + '.pkl'), 'wb+') as f:
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 
 
 def load_obj(name):
-    with open(os.path.join(os.getcwd(), 'output', 'objects', name + '.pkl'), 'rb') as f:
+    with open(os.path.join(os.getcwd(), 'output', 'objects', name + '.pkl'), 'rb+') as f:
         return pickle.load(f)
 
 
