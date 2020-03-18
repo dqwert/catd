@@ -12,7 +12,7 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/dqwerter/catd",
-    download_url='https://github.com/dqwerter/catd/archive/0.1.0.tar.gz',
+    download_url='https://github.com/dqwerter/catd/archive/0.2.0.tar.gz',
     packages=setuptools.find_packages(),
     install_requires=[  # I get to this in a second
         'jieba',
