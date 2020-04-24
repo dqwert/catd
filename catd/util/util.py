@@ -1,12 +1,10 @@
 import pickle
 import sys
 import os
-import re
-import jieba
-from jieba import posseg
 from pathlib import Path
 import urllib.request
 import logging
+from gensim import matutils
 
 
 logging.getLogger().setLevel(logging.INFO)
@@ -16,7 +14,7 @@ def set_up_current_dir_as_working_dir(download_test_set=True):
     Path(os.path.join('data', 'original_data')).mkdir(parents=True, exist_ok=True)
     Path(os.path.join('data', 'selected_words')).mkdir(parents=True, exist_ok=True)
     Path(os.path.join('data', 'stop_words')).mkdir(parents=True, exist_ok=True)
-    Path(os.path.join('objects')).mkdir(parents=True, exist_ok=True)
+    Path(os.path.join('output', 'objects')).mkdir(parents=True, exist_ok=True)
     Path(os.path.join('output', 'cut_docs')).mkdir(parents=True, exist_ok=True)
     Path(os.path.join('output', 'description')).mkdir(parents=True, exist_ok=True)
     Path(os.path.join('output', 'extracted_words')).mkdir(parents=True, exist_ok=True)
@@ -51,9 +49,9 @@ def display_progress(prompt, curr_progress, total):
 
 def collect_mutual_words_to_set_from_dir(dir_of_txt_files):
     """
-    generate stop words set from a given directory, by iterating all the txt files
-    :param dir_of_txt_files: each txt file should contain words sperated by '\n'
-    :return: a complete set of words
+    generate stop word set from a given directory, by iterating all the txt files
+    :param dir_of_txt_files: each txt file should contain word sperated by '\n'
+    :return: a complete set of word
     """
     word_set = set()
     is_initialized = False
@@ -74,9 +72,9 @@ def collect_mutual_words_to_set_from_dir(dir_of_txt_files):
 
 def collect_all_words_to_set_from_dir(dir_of_txt_files):
     """
-    generate stop words set from a given directory, by iterating all the txt files
-    :param dir_of_txt_files: each txt file should contain words sperated by '\n'
-    :return: a complete set of words
+    generate stop word set from a given directory, by iterating all the txt files
+    :param dir_of_txt_files: each txt file should contain word sperated by '\n'
+    :return: a complete set of word
     """
     word_set = set()
     for filename in os.listdir(dir_of_txt_files):
@@ -88,49 +86,6 @@ def collect_all_words_to_set_from_dir(dir_of_txt_files):
     return word_set
 
 
-def word_cut(list_of_docs, stop_words_set, selected_words_set=None,
-             selected_part_of_speech= None, if_output_tokens=False):
-    """
-    :param selected_words_set:
-    :param stop_words_set:
-    :param if_output_tokens:
-    :param selected_part_of_speech:
-    :param list_of_docs:
-    :return: a list of cleaned documents contain only Chinese characters
-    """
-    if selected_part_of_speech is None:
-        # set default selection
-        selected_part_of_speech = {'an', 'n', 'nr', 'ns', 'nt', 'nz', 'vn'}
-
-    corpus_after_cut = []
-    keep_chinese_chars = re.compile(r"[^\u4e00-\u9fa5]")
-    num_of_docs = len(list_of_docs)
-    index = 0
-
-    for doc in list_of_docs:
-        list_of_cut_words = []
-        # keep only Chinese characters
-        doc = keep_chinese_chars.sub(' ', doc)
-        for word_with_part_of_speech in jieba.posseg.dt.cut(doc):
-            word, part_of_speech = str(word_with_part_of_speech).split('/')
-            if selected_words_set is None:
-                if word not in stop_words_set and part_of_speech in selected_part_of_speech and len(word) > 1:
-                    list_of_cut_words.append(word)
-            else:
-                if word not in stop_words_set and part_of_speech in selected_part_of_speech and len(word) > 1 \
-                        and word in selected_words_set:
-                    list_of_cut_words.append(word)
-        corpus_after_cut.append(list_of_cut_words)
-
-        index += 1
-        display_progress('word cut', index, num_of_docs)
-
-    if if_output_tokens:
-        save_obj(corpus_after_cut, 'list_of_docs')
-
-    return corpus_after_cut
-
-
 def count_word_in_doc(list_of_words):
     word_counter_for_separate_doc = {}
     for word in list_of_words:
@@ -139,3 +94,42 @@ def count_word_in_doc(list_of_words):
         else:
             word_counter_for_separate_doc[word] += 1
     return word_counter_for_separate_doc
+
+
+def get_topic_with_words(gensim_lda_model, num_topics=-1, num_words=None, formatted=False):
+    """
+    From Gensim: Get a representation for selected topics.
+
+    Returns
+    -------
+    list of {str, tuple of (str, float)}
+        a list of topics, each represented either as a string (when `formatted` == True) or word-probability
+        pairs.
+
+    """
+    if num_topics < 0 or num_topics >= gensim_lda_model.num_topics:
+        num_topics = gensim_lda_model.num_topics
+        chosen_topics = range(num_topics)
+    else:
+        num_topics = min(num_topics, gensim_lda_model.num_topics)
+
+        # add a little random jitter, to randomize results around the same alpha
+        sort_alpha = gensim_lda_model.alpha + 0.0001 * gensim_lda_model.random_state.rand(len(gensim_lda_model.alpha))
+        # random_state.rand returns float64, but converting back to dtype won't speed up anything
+
+        sorted_topics = list(matutils.argsort(sort_alpha))
+        chosen_topics = sorted_topics[:num_topics // 2] + sorted_topics[-num_topics // 2:]
+
+    shown = []
+
+    topic = gensim_lda_model.state.get_lambda()
+    for i in chosen_topics:
+        topic_ = topic[i]
+        topic_ = topic_ / topic_.sum()  # normalize to probability distribution
+        bestn = matutils.argsort(topic_, num_words, reverse=True)
+        topic_ = [(gensim_lda_model.id2word[id], topic_[id]) for id in bestn]
+        if formatted:
+            topic_ = ' + '.join('%.3f*"%s"' % (v, k) for k, v in topic_)
+        shown.append((i, topic_))
+
+    return shown

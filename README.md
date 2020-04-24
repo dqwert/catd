@@ -2,7 +2,7 @@
 A Chinese co-word analysis with topic discovery package.
 
 # Overview
-The catd co-word analysis with topic discovery package is intend for Chinese corpus analysis. 
+The catd co-word analysis with topic discovery package is intend for Chinese corpus analysis.
 
 ## Use case
 For better experience, you can run this script (with your corpus which have list of documents separated by `'\n'`.)
@@ -62,6 +62,12 @@ If you have any question or suggestion, feel free to contact [the Author](mailto
     * word_tf_idf
     * num_of_words
 ```
+
+## log
+
+### 0.3.0
+
+Add support for lda model and topic information aggregation from words. 
 
 ## License
 
