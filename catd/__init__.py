@@ -4,4 +4,4 @@ from .Doc import Doc
 from .WordNode import WordNode
 import logging
 
-__version__ = '0.4.0'
+__version__ = '0.5.0'
