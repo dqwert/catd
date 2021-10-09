@@ -1,16 +1,27 @@
-import pickle
-import sys
-import os
-from pathlib import Path
-import urllib.request
+import datetime
 import logging
-from gensim import matutils
+import os
+import pickle
+import re
+import sqlite3
+import sys
+import urllib.request
+from pathlib import Path
 
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+from gensim import matutils
+from matplotlib.font_manager import FontProperties
 
 logging.getLogger().setLevel(logging.INFO)
 
 
 def set_up_current_dir_as_working_dir(download_test_set=True):
+    """
+    Create necessary directory and download test set
+    :param download_test_set:
+    :return:
+    """
     Path(os.path.join('data', 'original_data')).mkdir(parents=True, exist_ok=True)
     Path(os.path.join('data', 'selected_words')).mkdir(parents=True, exist_ok=True)
     Path(os.path.join('data', 'stop_words')).mkdir(parents=True, exist_ok=True)
@@ -19,9 +30,9 @@ def set_up_current_dir_as_working_dir(download_test_set=True):
     Path(os.path.join('output', 'description')).mkdir(parents=True, exist_ok=True)
     Path(os.path.join('output', 'extracted_words')).mkdir(parents=True, exist_ok=True)
     if download_test_set:
-        logging.info('downloading dataset...')
-        data_set_url = 'https://raw.githubusercontent.com/dqwerter/dataset/master/tianya_posts_test_set_100.txt'
-        urllib.request.urlretrieve(data_set_url, os.path.join('data', 'original_data', 'tianya_posts_test_set_100.txt'))
+        data_set_url = 'https://github.com/dqwert/dataset/raw/master/test_weibo_COVID19.db'
+        logging.info('downloading dataset from', data_set_url)
+        urllib.request.urlretrieve(data_set_url, os.path.join('data', 'original_data', 'test_weibo_COVID19.db'))
         logging.info('download complete.')
 
 
@@ -37,10 +48,11 @@ def load_obj(name):
 
 def display_progress(prompt, curr_progress, total):
     if curr_progress % 100 == 0:
-        progress_percent = curr_progress/total
+        progress_percent = curr_progress / total
         sys.stdout.write('\r')
         sys.stdout.write('%s [%s%s]%3.1f%s' % (
-            prompt, '█' * int(progress_percent * 50), ' ' * int(50 - int(progress_percent * 50)), progress_percent * 100, '%'))
+            prompt, '█' * int(progress_percent * 50), ' ' * int(50 - int(progress_percent * 50)),
+            progress_percent * 100, '%'))
     elif curr_progress == total:
         sys.stdout.write('\r')
         sys.stdout.write('%s [%s]100%s\n' % (prompt, '█' * 50, '%'))
@@ -133,3 +145,74 @@ def get_topic_with_words(gensim_lda_model, num_topics=-1, num_words=None, format
         shown.append((i, topic_))
 
     return shown
+
+
+def read_txt_input(dataset_filename):
+    corpus = []
+    with open(os.path.join('data', 'original_data', dataset_filename), encoding='utf-8') as f:
+        for line in f:
+            corpus.append(line)
+    return corpus
+
+
+def get_sql_database_input(database_filename):
+    remove_hashtag = re.compile(r'#[\w-]+#')
+    con = sqlite3.connect(os.path.join('data', 'original_data', database_filename))
+    cursor = con.cursor()
+    cursor.execute("SELECT post_content, post_time FROM posts")
+    rows = cursor.fetchall()
+    corpus = [(remove_hashtag.sub(' ', str(post_content)), post_time) for post_content, post_time in rows]
+    return corpus
+
+
+def vis_post_num_time_stats(database_filename):
+    con = sqlite3.connect(os.path.join('data', 'original_data', database_filename))
+    cursor = con.cursor()
+    cursor.execute("SELECT post_time, COUNT(1) AS post_num FROM posts GROUP BY post_time")
+    rows = cursor.fetchall()
+
+    x = [datetime.datetime.strptime(row[0], '%Y%m%d').date() for row in rows]
+    y = [row[1] for row in rows]
+
+    fig, ax = plt.subplots()
+
+    # configure x_axis for date
+    chinese_font = FontProperties(fname=os.path.join('data', 'STHeiti_Medium.ttc'))
+    fig.autofmt_xdate()
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
+    ax.xaxis.set_major_locator(mdates.WeekdayLocator())
+
+    plt.xlabel('日期', fontproperties=chinese_font)
+    plt.ylabel('收集微博数（条）', fontproperties=chinese_font)
+
+    ax.grid()
+
+    # Plot
+    ax.plot(x, y)
+    plt.show()
+
+
+def color_set(num):
+    color_set = {-1: (207 / 256, 207 / 256, 207 / 256),
+                 0: (31 / 256, 119 / 256, 180 / 256),
+                 1: (174 / 256, 199 / 256, 232 / 256),
+                 2: (255 / 256, 127 / 256, 14 / 256),
+                 3: (255 / 256, 187 / 256, 120 / 256),
+                 4: (44 / 256, 160 / 256, 44 / 256),
+                 5: (152 / 256, 223 / 256, 138 / 256),
+                 6: (214 / 256, 39 / 256, 40 / 256),
+                 7: (255 / 256, 152 / 256, 150 / 256),
+                 8: (148 / 256, 103 / 256, 189 / 256),
+                 9: (197 / 256, 176 / 256, 213 / 256),
+                 10: (140 / 256, 86 / 256, 75 / 256),
+                 11: (196 / 256, 156 / 256, 148 / 256),
+                 12: (227 / 256, 119 / 256, 194 / 256),
+                 13: (247 / 256, 182 / 256, 210 / 256),
+                 14: (127 / 256, 127 / 256, 127 / 256),
+                 15: (199 / 256, 199 / 256, 199 / 256),
+                 16: (188 / 256, 189 / 256, 34 / 256),
+                 17: (219 / 256, 219 / 256, 141 / 256),
+                 18: (23 / 256, 190 / 256, 207 / 256),
+                 19: (158 / 256, 218 / 256, 229 / 256),
+                 }
+    return color_set[num]
